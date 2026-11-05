@@ -6,7 +6,7 @@ Rules for every AI agent in this repository. Humans follow them too.
 Based on:
 - Andrej Karpathy's agent guidelines,
   https://github.com/forrestchang/andrej-karpathy-skills/blob/main/CLAUDE.md
-- The AI-native SDLC playbook (Claude Academy),
+- The AI-native SDLC playbook (Claude Academy):
   https://academy.claude.com/courses/ai-native-sdlc-playbook
 - Superpowers skill pack, https://github.com/obra/superpowers
   (MIT; tdd, review-pr, debugging and planning adapted in `.claude/skills/`)
@@ -222,15 +222,17 @@ Filled in by the setup pull request. Changed only by the owner.
 
 - Branch protection: none
 - Goal: Player-d: a Dante audio server. A virtual Dante soundcard and a
-  virtual Dante mixer with Spotify Connect, Tidal, local and external
-  Dante sources. One server runs multiple Spotify and Tidal connections
-  and sends different sources to different Dante speakers. Zones have
-  custom names, at least one input; multiple inputs are mixed. Volume is
-  set per zone and per speaker. A built-in zone manager (create zones,
-  map inputs to zones) and a WebGUI control everything. Like Sonos, but
-  with every Dante speaker, for showrooms, stores and homes.
-- Users and platforms: store, showroom and home users; Windows (native
-  application) and Docker (Linux container).
+  virtual Dante mixer with Spotify Connect, Tidal, AirPlay, local and
+  external Dante sources. One server runs multiple Spotify, Tidal and
+  AirPlay connections and sends different sources to different Dante
+  speakers. Zones have custom names, are created freely, and mix one or
+  more inputs. Volume is set per input (ceiling), per zone and per
+  speaker; the total Dante I/O stays under a real-world ceiling. A
+  built-in zone manager and a WebGUI control everything. Like Sonos,
+  but with every Dante speaker, for showrooms, stores and homes.
+- Users and platforms: store, showroom and home users. Docker (Linux
+  container; runs on Windows via Docker Desktop) is the primary target.
+  Windows native: v0.2+. No Mac target (owner).
 - Repository structure: one repository: backend + WebGUI inside it.
 - Stack: C#/.NET 8; TypeScript (React) WebGUI served by the same app.
 - Decisions:
@@ -239,3 +241,16 @@ Filled in by the setup pull request. Changed only by the owner.
   - 2026-11-05: first plan must resolve the unofficial Spotify/Tidal
     Connect device protocols and the Linux (Docker) Dante audio path
     (the Windows Dante Virtual Soundcard SDK does not run in a container).
+  - 2026-11-05: v0.1 is Docker-first (owner); Windows native deferred
+    until the Docker version is proven. No Mac target (owner); the repo
+    description mentioning Mac is stale.
+  - 2026-11-05: v0.1 sources: local file, AirPlay, Spotify Connect,
+    Tidal, Dante input (owner: AirPlay added alongside Spotify and
+    Tidal).
+  - 2026-11-05: the mixer is a full matrix: per-input ceiling, per-zone
+    level, per-speaker level, dynamic zones, global Dante I/O budget in
+    par with real world limits (plan #2, spec #14).
+  - 2026-11-05: protocols start clean room / reverse engineered
+    (Spotify, AirPlay, Tidal, Linux Dante); the source and output
+    interfaces must keep official SDKs swappable; costs and legal
+    exposure in #12, DDM readiness in #13.
