@@ -221,12 +221,21 @@ Plan, then steps. Everything in GitHub, nothing in extra files.
 Filled in by the setup pull request. Changed only by the owner.
 
 - Branch protection: none
-- Goal: repo-starter itself. Rules and portable skills for AI agents.
-- Users and platforms: anyone using an AI coding agent, any platform.
-- Repository structure: one repository.
-- Stack: Markdown.
+- Goal: Player-d: a Dante audio server. A virtual Dante soundcard and a
+  virtual Dante mixer with Spotify Connect, Tidal, local and external
+  Dante sources. One server runs multiple Spotify and Tidal connections
+  and sends different sources to different Dante speakers. Zones have
+  custom names, at least one input; multiple inputs are mixed. Volume is
+  set per zone and per speaker. A built-in zone manager (create zones,
+  map inputs to zones) and a WebGUI control everything. Like Sonos, but
+  with every Dante speaker, for showrooms, stores and homes.
+- Users and platforms: store, showroom and home users; Windows (native
+  application) and Docker (Linux container).
+- Repository structure: one repository: backend + WebGUI inside it.
+- Stack: C#/.NET 8; TypeScript (React) WebGUI served by the same app.
 - Decisions:
-  - 2026-11-01: v2. Canon in AGENTS.md, thin CLAUDE.md, portable skills
-    in .claude/skills, install/update/uninstall by
-    paste prompt with a sha256 receipt (.repo-starter.lock). Track v2
-    issues on dev until testing done, then v2 to main.
+  - 2026-11-05: v1 setup. Sources: Spotify Connect, Tidal, local files,
+    external Dante. Open source components only. License: TBD.
+  - 2026-11-05: first plan must resolve the unofficial Spotify/Tidal
+    Connect device protocols and the Linux (Docker) Dante audio path
+    (the Windows Dante Virtual Soundcard SDK does not run in a container).
