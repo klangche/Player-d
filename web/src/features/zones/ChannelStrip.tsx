@@ -2,37 +2,25 @@ import type { ZoneInput } from "../../api/types";
 
 export function ChannelStrip({
   input,
-  sourceName,
+  label,
   onPatch,
 }: {
   input: ZoneInput;
-  sourceName?: string;
+  label: string;
   onPatch: (patch: Partial<ZoneInput>) => void;
 }) {
   const effective = Math.min(input.level, input.ceiling);
-  const label =
-    input.kind === "source" ? sourceName ?? "source" : input.kind === "zone" ? "From zone" : "Dante";
 
   return (
     <div className="strip" data-strip={input.id}>
       <div className="strip-head">
-        <span className="strip-label">
-          {label}
-          {input.kind === "dante" ? " IN" : ""}
-        </span>
+        <span className="strip-label">{label}</span>
         <span className="strip-badges">
           {input.mute ? "M" : ""}
           {input.solo ? "S" : ""}
         </span>
       </div>
-      <input
-        type="range"
-        min={0}
-        max={100}
-        value={effective}
-        aria-label="level"
-        onChange={(e) => onPatch({ level: Number(e.target.value) })}
-      />
+      <input type="range" min={0} max={100} value={effective} aria-label="level" onChange={(e) => onPatch({ level: Number(e.target.value) })} />
       <div className="strip-row">
         <label>
           Ceiling

@@ -10,7 +10,7 @@ export function SourcesPanel({
 }: {
   zone: Zone;
   sources: Source[];
-  onAttach: (sourceId: string) => void;
+  onAttach: (sourceId: string, kind: "spotify" | "tidal" | "airplay" | "local", name: string, channels: 1 | 2) => void;
   onConnect: (sourceId: string) => void;
   onDisconnect: (sourceId: string) => void;
 }) {
@@ -41,6 +41,15 @@ export function SourcesPanel({
             </div>
           );
         })}
+      {zone.inputs
+        .filter((i) => i.kind === "dante")
+        .map((input) => (
+          <div key={input.id} className="source-row">
+            <span className="badge">dante</span>
+            <span className="source-name">Dante IN {input.channels?.[0]?.channelIndex ?? "-"}</span>
+            <span className="source-status">routed</span>
+          </div>
+        ))}
       <AddSourceDialog sources={available} onAttach={onAttach} onClose={() => undefined} />
     </section>
   );

@@ -7,7 +7,7 @@ export function AddSourceDialog({
   onClose,
 }: {
   sources: Source[];
-  onAttach: (sourceId: string) => void;
+  onAttach: (sourceId: string, kind: "spotify" | "tidal" | "airplay" | "local", name: string, channels: 1 | 2) => void;
   onClose: () => void;
 }) {
   return (
@@ -15,7 +15,11 @@ export function AddSourceDialog({
       <div className="add-source">
         {sources.length === 0 ? <div>No unattached sources</div> : null}
         {sources.map((source) => (
-          <button key={source.id} type="button" onClick={() => onAttach(source.id)}>
+          <button
+            key={source.id}
+            type="button"
+            onClick={() => onAttach(source.id, source.kind, source.name, source.channels)}
+          >
             {source.name} ({source.kind})
           </button>
         ))}

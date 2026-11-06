@@ -10,16 +10,17 @@ export function MixerPanel({
   onPatchInput: (inputId: string, patch: Partial<ZoneInput>) => void;
   onMaster: (patch: Partial<{ level: number; mute: boolean }>) => void;
 }) {
+  const labelFor = (input: ZoneInput): string => {
+    if (input.kind === "source") return zone.name;
+    if (input.kind === "zone") return `From ${input.sourceZoneId ?? ""}`;
+    return "Dante";
+  };
+
   return (
     <section className="mixer">
       <h2>Mixer</h2>
       {zone.inputs.map((input) => (
-        <ChannelStrip
-          key={input.id}
-          input={input}
-          sourceName={input.sourceId ? `source-${input.sourceId}` : undefined}
-          onPatch={(patch) => onPatchInput(input.id, patch)}
-        />
+        <ChannelStrip key={input.id} input={input} label={labelFor(input)} onPatch={(patch) => onPatchInput(input.id, patch)} />
       ))}
       <div className="strip master">
         <div className="strip-head">
