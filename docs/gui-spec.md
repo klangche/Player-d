@@ -489,7 +489,7 @@ type ChannelDirection = "tx" | "rx";           // from the device's point of vie
 type ChannelCount = 2 | 4 | 8 | 16 | 32;      // Dante channels per direction
 type LayoutMode = "mono" | "stereo" | "mixed";
 type PairMode = "stereo" | "split";          // used when LayoutMode = mixed
-type MonoContent = "left" | "right" | "sum"; // mono slots; default sum
+type MonoContent = "left" | "right" | "sum"; // mono output slots; default sum
 
 interface ZoneIo {
   inChannels: ChannelCount;    // Dante channels per direction; slot count
@@ -537,11 +537,15 @@ interface Zone {
   inputs: ZoneInput[]; outputs: ZoneOutput[];
 }
 
+interface FlowCounts {
+  txCap: number; rxCap: number; txUsed: number; rxUsed: number;
+}
+
 interface DanteDevice {
   id: string; name: string; address: string;
   sampleRate: number;
   channels: { index: number; direction: ChannelDirection; name?: string }[];
-  flows: { txCap: number; rxCap: number; txUsed: number; rxUsed: number };
+  flows: FlowCounts;           // snapshot; GET /dante/flows is the source
   reachable: boolean;
 }
 
@@ -572,6 +576,12 @@ interface SystemStatus {
   capacity: DanteCapacity;
 }
 
+// Response of GET /dante/flows: one snapshot for the header and matrix.
+interface DanteFlows {
+  capacity: DanteCapacity;
+  devices: { deviceId: string; flows: FlowCounts }[];
+}
+
 // Pushed at 20 Hz while a browser is subscribed; never stored.
 interface MeterFrame {
   zoneId: string;
@@ -593,7 +603,7 @@ GET    /system/status             version, engine state, capacity, clock leader
 GET    /system/logs               log archive download
 GET    /zones                     POST /zones
 GET    /zones/{id}                PATCH /zones/{id}        DELETE /zones/{id}
-PUT    /zones/layout              body: { layout: "mono" }  applies to all zones
+PUT    /zones/layout              body: { layout }  both directions, all zones
 POST   /zones/{id}/inputs         body: source or zone strip only
 PATCH  /zones/{id}/inputs/{inputId}
 DELETE /zones/{id}/inputs/{inputId}   source/zone strips only
@@ -602,8 +612,8 @@ PATCH  /zones/{id}/outputs/{outputId}
 GET    /sources                   POST /sources            DELETE /sources/{id}?detach=true
 POST   /sources/{id}/connect      POST /sources/{id}/disconnect
 GET    /dante/devices             POST /dante/scan
-PUT    /dante/subscriptions     body: { direction: "in" | "out", slotId, deviceId, channelIndices: number[] } | null
-GET    /dante/flows              capacity plus channel and stream counts per device
+PUT    /dante/subscriptions     body: { direction: "in" | "out", slotId, assignment: { deviceId, channelIndices: number[] } | null }
+GET    /dante/flows              DanteFlows: capacity plus per-device flow counts
 GET    /settings                  PUT /settings
 POST   /system/restart            body: { target: "audio" | "sources" }
 ```
@@ -619,10 +629,14 @@ affected zone.
 
 Dante input and output slots are created and removed by the channel
 count and layout, not by POST/DELETE. A slot is filled with
-`PUT /dante/subscriptions`; `null` releases it. `POST`/`DELETE` on
-`/inputs` accept only source and zone strips; a Dante slot returns
-`409 slot_derived`. `DELETE /sources/{id}` returns `409 source_in_use`
-unless `detach=true`, which removes it from every zone first.
+`PUT /dante/subscriptions`; `assignment: null` releases it and keeps the
+slot. `channels` is read-only in `PATCH`; `content`, `level` and `mute`
+are patchable slot settings. `POST`/`DELETE` on `/inputs` accept only
+source and zone strips; a Dante slot returns `409 slot_derived`.
+`DELETE /sources/{id}` returns `409 source_in_use` unless `detach=true`,
+which removes it from every zone first. `GET /dante/flows` returns
+`DanteFlows` and is the source for the header; `DanteDevice.flows` is
+the same snapshot embedded in `GET /dante/devices`.
 
 Meters are not in REST; they are pushed at 20 Hz only while at least
 one browser is subscribed (SignalR group per zone).
