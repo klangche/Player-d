@@ -524,7 +524,7 @@ interface ZoneInput {
 interface ZoneOutput {          // one speaker
   id: string;
   channels?: ChannelRef[];      // remote device Rx; 1 or 2 adjacent entries
-  content?: MonoContent;        // mono slots; default sum
+  content?: MonoContent;        // mono output slots; default sum
   routeMode?: "managed" | "advertised";  // derived, read-only; section 8.4
   level: number; mute: boolean;
   signal: boolean;              // runtime only, for the UI
