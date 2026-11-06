@@ -97,7 +97,7 @@ opens `/zones/:id`.
 |        | +--------------------------+                               |
 |        |                                                              |
 |        | +----------------------------------------------------------+ |
-|        | | DANTE I/O                     budget 2 in / 1 out       | |
+|        | | DANTE I/O               routed 2/512 in  1/512 out    | |
 |        | | Channels In [32 v] Out [32 v]  Layout In (mono) Out (stereo)|
 |        | | IN 1   Amp-1 / Tx 3            [change]            [x]   | |
 |        | | OUT 1  Amp-1 / Rx 1-2  [Lvl 70] [meter] [change]  [x]   | |
@@ -115,8 +115,9 @@ opens `/zones/:id`.
 
 ### 2.2 Mixer
 
-One channel strip per zone input slot, in list order, then the master
-strip. A stereo slot is one strip that controls both of its channels.
+One channel strip per zone input: a source strip, a Dante input slot or
+a zone link, in list order, then the master strip. A stereo slot is one
+strip that controls both of its channels.
 
 Strip controls:
 - Label: source name, `IN n` plus the bound Dante channel(s), or
@@ -131,15 +132,17 @@ Strip controls:
 - Level meter, -60 to 0 dBFS, one bar per channel, stub in Phase 1
   (animated bar), real in Phase 3 (SignalR, 20 Hz).
 - Remove input (`x`). Removing a source input does not delete the
-  global source; a Dante input slot is removed with its channel count.
+  global source; a Dante input slot is cleared and stays until the
+  channel count shrinks.
 
 Master strip: level 0-100, mute, meter. It follows the last stage of
 the zone bus.
 
 Layout: horizontal strips in a wrapping row, at most 32 Dante channels
-per zone (32 mono strips or 16 stereo strips). Strips scroll
-horizontally rather than shrink below ~120 px. Zone links are added and
-removed in the Zone Mixer view and appear here as strips.
+per zone (32 mono slots or 16 stereo slots), plus source and zone-link
+strips. Strips scroll horizontally rather than shrink below ~120 px.
+Zone links are added and removed in the Zone Mixer view and appear here
+as strips.
 
 ### 2.3 Sources panel
 
@@ -169,8 +172,10 @@ Connect semantics per source kind:
   and attaches it to this zone.
 - Local file -> opens a path picker (server-side path) -> creates a
   Local source and attaches it.
-- External Dante -> creates one Dante input slot for this zone and
-  opens the channel picker. This is a zone input, not a global source.
+- External Dante -> opens the picker for the next unassigned input slot;
+  if none is free, raises the input channel count by two (next ladder
+  step) after confirming the added channels and budget. This is a zone
+  input, not a global source.
 - Existing source -> lists unattached global sources; attaches one to
   this zone.
 
@@ -191,33 +196,48 @@ Layout           Inputs  (o) mono  ( ) stereo  ( ) mixed
                  Outputs ( ) mono  (o) stereo  ( ) mixed
 ```
 
-- `mono`: N slots, one channel each. N speakers, one level each.
+- `mono`: N slots, one channel each. N speakers, one level each. Each
+  mono slot picks its content: `L`, `R` or `L+R` (default `L+R`).
 - `stereo`: N/2 slots, one L/R pair each. N/2 speakers, one level each.
-- `mixed`: per pair, choose `stereo` or `dual-mono` (two independent
-  channels). This is the mixed mono case: stereo where the speaker has
-  two channels, mono everywhere else.
+- `mixed`: per pair, choose `stereo` or `split` (two independent mono
+  slots, each with its own L/R/L+R choice). This is the mixed mono
+  case: stereo where the speaker has two channels, mono everywhere
+  else.
 - Source inputs sit beside the Dante input slots and do not consume the
   Dante budget. They have 1 or 2 channels (mono local file, stereo
   Spotify) and their own strip. Zone links likewise add a strip and no
   Dante channels.
-- The zone bus is stereo. A stereo slot passes L/R; a mono slot carries
-  the L+R downmix, and on the input side its signal is fed to both bus
-  channels. Exact gains belong to #14.
+- The zone bus is stereo. A stereo slot passes L/R. A mono slot picks
+  its content from the bus: `L`, `R` or `L+R`. On the input side, a
+  stereo source into a mono slot uses the same choice; a mono source is
+  centered. Exact gains belong to #14.
+- The channel count creates the slots, not an assignment. An unassigned
+  input slot has no subscription and is silent. An unassigned output
+  slot has no subscription and no advertised stream, so it is silent
+  too. Both still occupy the configured channel count.
 - Changing the channel count or layout keeps assignments by channel
   index where possible and asks before dropping the rest.
 - The selects are disabled with a reason when the global budget would
   be exceeded.
 
+Dante protocol rules: every Dante channel is mono and stays mono on the
+wire. A stereo slot is a Player-d convention over two adjacent device
+channels on the same device, lower index = L, higher index = R. A mono
+slot consumes exactly one channel; choosing `L` or `R` does not copy or
+duplicate the other channel. No stereo flag is sent to the device.
+
 Each input slot: channel picker (device > transmit channel), clear.
 Each output slot (= one speaker): channel picker (device > receive
-channel, an adjacent pair for stereo), output level 0-100, mute,
-meter, clear.
+channel, an adjacent pair for stereo), content L/R/L+R for mono slots,
+output level 0-100, mute, meter, clear.
 
 Direction is named from the device's point of view and shown that way
 in the picker, because Dante Tx/Rx is the most common source of
 misconfiguration:
-- Zone input subscribes to a **device transmit (Tx)** channel.
-- Zone output sends to a **device receive (Rx)** channel.
+- Zone input: the virtual device's Rx channel subscribes to a **device
+  transmit (Tx)** channel.
+- Zone output: the virtual device's Tx channel is subscribed by a
+  **device receive (Rx)** channel, managed or advertised (section 8.4).
 
 ### 2.5 Channel picker
 
@@ -239,7 +259,7 @@ same shape so it reads as one routing table.
 
 ```
 DANTE CONTROLLER                          [Scan]   last scan 12 s ago
-Budget: 6 / 512 in   4 / 512 out [############.......................]
+Budget: 6/512 in  4/512 out  2/32 tx flows  [########............]
 Direction: ( Inputs )  Outputs
 
 DEVICES                          +--------------------------------------+
@@ -258,16 +278,19 @@ v Stage box    10.0.0.5         | Amp-1 Tx 2   |      -      |   [slot 1]
   (outputs tab), grouped by zone. A stereo slot is one column bound to
   two adjacent device channels; a mono slot to one.
 - A cell is a dropdown with that zone's free slots plus "unassigned".
-  One device channel may feed several zone inputs (fan-out); one zone
-  output slot binds one device channel, or an adjacent pair when the
-  slot is stereo. Assigning an already used cell replaces the previous
-  binding after confirmation.
+  Inputs: a device Tx channel can feed several zone inputs (fan-out);
+  the server warns when fan-out uses up the transmitter's flows.
+  Outputs: one zone output slot maps to one of the virtual device's Tx
+  channels (an adjacent pair when the slot is stereo), and each device
+  Rx channel can have only one source. Assigning an already used cell
+  replaces the previous subscription after confirmation.
+- Output cells carry a mode badge: `M` managed (subscription created by
+  Player-d) or `A` advertised (the device must subscribe; section 8.4).
 - The matrix header shows each zone's channel layout, and a mixed zone
   shows `L/R` or `M` per slot, so the routing is readable without
   opening the zone.
-- Budget bar shows used and allowed channels (mono channels, not
-  slots). It turns red at the limit and the server rejects assignments
-  over it.
+- Budget bar shows used and allowed channels and flows. It turns red at
+  a limit and the server rejects assignments over it.
 - Empty state: no devices discovered -> "No Dante devices found",
   scan button, and a link to the network section of Settings.
 
@@ -302,7 +325,7 @@ FROM Living           -       [ 80 ]         -          -
 - Self-links are not offered. A link that would create a cycle (A -> B
   -> A, or longer) is rejected by the server with `409 zone_cycle`; the
   UI disables those cells and says why.
-- Links are internal: no Dante channels and no budget.
+- Links are internal: no Dante channels, flows or budget.
 - Deleting a zone removes its links in both directions.
 - Empty state with fewer than two zones: prompt to create another zone.
 - The matrix shows zones only. Sources are attached in the zone view.
@@ -318,10 +341,10 @@ immediately, no global submit.
 
 | Group    | Fields                                                                                 |
 | -------- | -------------------------------------------------------------------------------------- |
-| Network  | Dante interface (NIC) select, host name, sample rate 48/96 kHz, latency 0.25/1/5 ms    |
-| Defaults | default input level, default output level, default master level, power-on mute, default channel layout for new zones (mono/stereo/mixed) |
+| Network  | Dante interface (NIC) select, host name, sample rate 48/96 kHz, latency 0.25/0.5/1/2/5 ms |
+| Defaults | default input level, default output level, default master level, power-on mute, default channel count (2/4/8/16/32) and layout (mono/stereo/mixed) for new zones |
 | Backends | Spotify binary path, Spotify bitrate 160/320, AirPlay binary path, Tidal binary path, local music directory |
-| Budget   | max Dante inputs and outputs, in channels (v0.1: 512/512 at 48 kHz, 256/256 at 96 kHz; #14 confirms) |
+| Budget   | read-only Dante capacity: channels and flows available, derived from the virtual device's channel count and the sample rate |
 | System   | version, audio engine state, restart audio engine, restart source backends, download logs |
 
 A "set every zone to mono" action lives in Defaults: it applies the
@@ -402,12 +425,14 @@ context plus `useReducer`. This keeps the first review small.
 | Levels, ceilings, mutes, master, output levels   | Server  | Persisted           |
 | Zone name, global settings                       | Server  | Persisted           |
 | Solo                                             | Server  | Runtime only        |
-| Source status, meters, Dante device list, budget | Server  | Runtime only        |
+| Source status, meters, Dante devices, flows, budget | Server | Runtime only     |
 | Active route, dialogs, input drafts              | Client  | Session             |
 | Optimistic slider value while dragging           | Client  | Until server echo   |
 
 - One store on the server. The client never computes audio state; it
   renders server state and sends intent.
+- No UI-only features: every control maps to a server operation in
+  section 7. If there is no operation, the control does not ship.
 - Slider changes are debounced (~80 ms) and sent as partial updates.
   The client shows the local value until the server state arrives, then
   drops it; a rejected update snaps back and raises a toast.
@@ -430,15 +455,16 @@ Phase 2, not written by hand twice.
 ```ts
 type SourceKind = "spotify" | "tidal" | "airplay" | "local";
 type SourceStatus = "offline" | "connecting" | "online" | "error";
-type ChannelFlow = "device-tx" | "device-rx";  // device point of view
+type ChannelDirection = "tx" | "rx";           // from the device's point of view
 
 type ChannelCount = 2 | 4 | 8 | 16 | 32;      // Dante channels per direction
 type LayoutMode = "mono" | "stereo" | "mixed";
-type PairMode = "stereo" | "dual-mono";       // used when LayoutMode = mixed
+type PairMode = "stereo" | "split";          // used when LayoutMode = mixed
+type MonoContent = "left" | "right" | "sum"; // mono slots; default sum
 
 interface ZoneIo {
-  inChannels: ChannelCount;
-  outChannels: ChannelCount;
+  inChannels: ChannelCount;    // Dante channels only; inputs[] also holds
+  outChannels: ChannelCount;   // source and zone strips
   inLayout: LayoutMode;
   outLayout: LayoutMode;
   inPairs?: PairMode[];   // length inChannels/2, mixed only
@@ -458,7 +484,8 @@ interface ZoneInput {
   kind: "source" | "dante" | "zone";
   sourceId?: string;            // kind=source
   sourceZoneId?: string;        // kind=zone, the feeding zone
-  channels?: ChannelRef[];      // kind=dante, device-tx; 1 or 2 entries
+  channels?: ChannelRef[];      // kind=dante, remote device Tx; 1 or 2 entries
+  content?: MonoContent;        // mono slots; default sum
   level: number;                // 0..100
   ceiling: number;              // 0..100
   mute: boolean;
@@ -467,7 +494,9 @@ interface ZoneInput {
 
 interface ZoneOutput {          // one speaker
   id: string;
-  channels?: ChannelRef[];      // device-rx; 1 or 2 adjacent entries
+  channels?: ChannelRef[];      // remote device Rx; 1 or 2 adjacent entries
+  content?: MonoContent;        // mono slots; default sum
+  routeMode?: "managed" | "advertised";  // derived, read-only; section 8.4
   level: number; mute: boolean;
   signal: boolean;              // runtime only, for the UI
 }
@@ -482,18 +511,28 @@ interface Zone {
 interface DanteDevice {
   id: string; name: string; address: string;
   sampleRate: number;
-  channels: { index: number; flow: ChannelFlow; name?: string }[];
+  channels: { index: number; direction: ChannelDirection; name?: string }[];
+  flows: { tx: number; rx: number };   // device's reported flow limits
   reachable: boolean;
 }
 
 interface Settings {
   network: { nic: string; hostName: string; sampleRate: 48000 | 96000;
-             latencyMs: 0.25 | 1 | 5 };
+             latencyMs: 0.25 | 0.5 | 1 | 2 | 5 };
   defaults: { inputLevel: number; outputLevel: number; masterLevel: number;
-              powerOnMute: boolean };
+              powerOnMute: boolean; channelCount: ChannelCount;
+              layout: LayoutMode };
   backends: { spotifyPath: string; spotifyBitrate: 160 | 320;
               airplayPath: string; tidalPath: string; musicDir: string };
-  budget: { maxInputs: number; maxOutputs: number };
+}
+
+// Read-only, from GET /dante/flows. Not a setting: Dante fixes capacity
+// by link speed and sample rate.
+interface DanteCapacity {
+  inChannels: number; outChannels: number;   // 512/512 at 48 kHz, 256/256 at 96 kHz
+  inFlows: number; outFlows: number;         // streams Player-d receives/advertises
+  usedInChannels: number; usedOutChannels: number;
+  usedInFlows: number; usedOutFlows: number;
 }
 ```
 
@@ -511,14 +550,16 @@ DELETE /zones/{id}/outputs/{outputId}
 GET    /sources                   POST /sources            DELETE /sources/{id}
 POST   /sources/{id}/connect      POST /sources/{id}/disconnect
 GET    /dante/devices             POST /dante/scan
-PUT    /dante/assignments         body: { inputSlotId?, outputSlotId?, channelIds?: string[] | null }
+PUT    /dante/subscriptions     body: { direction: "in" | "out", slotId, deviceId, channelIndices: number[] } | null
+GET    /dante/flows              read-only channel and flow counts per device
 GET    /settings                  PUT /settings
 POST   /system/restart            body: { target: "audio" | "sources" }
 ```
 
 Rules: all ids are opaque strings (GUIDs). `PATCH` takes partial
 objects. Validation errors return `400` with `{ errors: { field: msg }}`.
-Budget violations return `409` with a machine-readable code. A zone
+Budget violations return `409` with a machine-readable code
+(`budget_channels`, `budget_flows`, `clock_rate`, `rx_in_use`). A zone
 link is created with `POST /zones/{toZoneId}/inputs` and
 `kind="zone"`; a self-link or a cycle returns `409 zone_cycle`. Every
 mutation returns the changed resource and the client refetches the
@@ -527,22 +568,94 @@ affected zone.
 Meters are not in REST; they are pushed at 20 Hz only while at least
 one browser is subscribed (SignalR group per zone).
 
-## 8. Limits
+## 8. Limits and Dante enforcement
 
-- Global Dante budget: 512 input channels and 512 output channels
-  (owner decision), summed over all zones. This is Dante's gigabit
-  ceiling at 48 kHz; it halves at 96 kHz (256/256), which #14 confirms
-  against Audinate's published limits. The server enforces it; the UI
-  reads it.
-- Per zone, per direction: one of 2, 4, 8, 16 or 32 Dante channels.
-  32 channels is 32 mono speakers or 16 stereo speakers; mixed sits in
-  between.
-- Source inputs and zone links do not count towards the Dante budget.
-- Zone links: at most one per ordered pair of zones; no channel budget;
-  cycles and self-links are rejected.
+### 8.1 How Dante works
+
+The model the server and the UI must follow (Audinate Dante Controller
+guide and Dante certification material). A new control is only added if
+it maps to one of these operations; nothing exists in the UI that Dante
+has no concept of.
+
+- A device has transmit (Tx) and receive (Rx) channels. Every channel
+  is mono. A stereo signal is two channels, never a stereo stream.
+- Routing is a **subscription**: an Rx channel subscribes to exactly
+  one Tx channel. Fan-out is allowed: many Rx channels may subscribe to
+  the same Tx channel. A Tx channel can have many subscribers; an Rx
+  channel has one source.
+- Audio travels in **flows**, not channels. Dante unicast flows carry 4
+  channels each; multicast flows carry up to 8 (newer devices up to
+  64). Each receiver needs its own unicast flow, so fan-out consumes
+  the transmitter's flow budget. Typical devices support 2, 16 or 32
+  flows each way (Ultimo, Broadway, Brooklyn).
+- Capacity: 512 x 512 channels at 48 kHz on one gigabit link, 256 x 256
+  at 96 kHz. The flow limit often binds before the channel limit.
+- One PTP clock leader and one sample rate for the network. A device at
+  another rate cannot subscribe.
+- Discovery is mDNS; audio and PTP run over UDP.
+- AES67 mode, the Linux container path, is different on the wire: SDP
+  streams of at most 8 channels at 48 or 96 kHz, no Dante
+  subscription. A Dante device must be switched to AES67 mode to
+  receive those streams.
+
+Player-d is one virtual Dante device. Zone slots map to its own
+channels: a zone input slot is one of its Rx channels (two adjacent for
+a stereo slot), a zone output slot is one of its Tx channels (again one
+or two). Remote devices are reached through subscriptions, not by
+"sending to an Rx channel".
+
+### 8.2 Limits
+
+- Global budget: 512 input and 512 output channels at 48 kHz on a
+  gigabit link (256/256 at 96 kHz; a 100 Mbit link carries far fewer).
+  The same numbers are the virtual device's channel count. They are
+  read-only, not a setting; the UI shows what is left.
+- Per zone, per direction: 2, 4, 8, 16 or 32 channels. This is a
+  product cap, not a Dante limit. At full budget that is 16 zones of
+  32 x 32.
+- Flow budget: counted separately. The server knows its own stream count
+  from the AES67 stack (8 channels per stream, so 32 channels = 4
+  streams) and each remote device's reported flow limit. A subscription
+  that exceeds a device's flow limit is rejected, not silently dropped.
+  Flow limits apply to devices in Dante mode; in AES67 mode the
+  receiver's stream limit applies instead.
+- Source inputs and zone links consume neither Dante channels nor
+  flows.
+- Zone links: one per ordered pair; cycles and self-links rejected.
 - Name length 1-64 characters, unique per kind is not required.
-- Levels are integers 0-100; 100 maps to 0 dB, 0 to silence. The
-  curve is linear in dB (documented again in the mixer phase).
+- Levels are integers 0-100; 100 maps to 0 dB, 0 to silence. The curve
+  is linear in dB (documented again in the mixer phase).
+
+### 8.3 Enforcement rules (server, Phase 4)
+
+- Reject an assignment over the channel budget, the per-zone cap, a
+  device flow limit, or with a sample-rate mismatch.
+- Reject a second source for one Rx channel. Allow many Rx channels on
+  one Tx channel, but warn when fan-out exhausts the transmitter's
+  flows.
+- A subscription change is atomic per slot. On failure the previous
+  subscription stays and the UI shows the error.
+- Changing sample rate or latency drops and re-creates affected flows.
+  The UI asks first and lists the affected zones.
+- The server reports the clock leader and refuses to start audio when
+  none exists.
+
+### 8.4 Managed vs advertised output routing
+
+With the licensed Audinate SDK, Player-d could create subscriptions on
+remote devices. With the Linux/AES67 path it cannot: it advertises SDP
+streams and the receiving device (or Dante Controller) subscribes.
+
+Each output assignment therefore has a mode:
+- `managed`: Player-d created the subscription through the Dante
+  control protocol, only if the Phase 4 spike proves it works.
+- `advertised`: Player-d transmits the AES67 stream; the matrix records
+  the intended target for display and validation, but the user makes
+  the subscription on the device.
+
+The matrix shows the mode per link. A failed subscription never leaves
+the UI claiming audio is routed. This is the limit of the Docker-first
+path and is measured in the Phase 4 spike (#3, #19).
 
 ## 9. Source and Dante backends (intent, binding decision in the phase)
 
@@ -582,13 +695,12 @@ Each question has the proposed default; silence means the default.
 | # | Question | Proposed default | Needed by |
 | - | -------- | ---------------- | --------- |
 | 1 | Should a zone's add menu attach existing global sources, not only create new ones? | Yes, "Existing source" entry | Phase 1 |
-| 2 | What does "mixed" mean exactly: per pair mono/stereo (proposed), or per mono speaker a choice of L, R or L+R? | Per pair `stereo` or `dual-mono`, with automatic downmix | Phase 1 |
-| 3 | Solo is transient, not persisted | Accepted | Phase 1 |
-| 4 | Deleting a zone leaves its sources global and unattached | Accepted | Phase 1 |
-| 5 | `/` opens the last selected zone (else first zone) | Accepted | Phase 1 |
-| 6 | When does the login screen arrive? It is not in the phase list, but #21 is in the v0.1 roadmap. | Phase 2 shell (disabled) + enabled with #21 | Phase 2 |
-| 7 | Level-to-dB curve for faders | 100 = 0 dB, linear in dB, 0 = silence | Phase 3 (#14) |
-| 8 | Tidal Connect has no mature open-source receiver. If the Phase 5 spike fails, is a non-Connect Tidal source acceptable, or is Tidal deferred? | Defer Tidal rather than ship a fake Connect target | Phase 5 |
+| 2 | Solo is transient, not persisted | Accepted | Phase 1 |
+| 3 | Deleting a zone leaves its sources global and unattached | Accepted | Phase 1 |
+| 4 | `/` opens the last selected zone (else first zone) | Accepted | Phase 1 |
+| 5 | When does the login screen arrive? It is not in the phase list, but #21 is in the v0.1 roadmap. | Phase 2 shell (disabled) + enabled with #21 | Phase 2 |
+| 6 | Level-to-dB curve for faders | 100 = 0 dB, linear in dB, 0 = silence | Phase 3 (#14) |
+| 7 | Tidal Connect has no mature open-source receiver. If the Phase 5 spike fails, is a non-Connect Tidal source acceptable, or is Tidal deferred? | Defer Tidal rather than ship a fake Connect target | Phase 5 |
 
 ## 12. Sign-off
 
