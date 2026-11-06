@@ -630,8 +630,9 @@ affected zone.
 Dante input and output slots are created and removed by the channel
 count and layout, not by POST/DELETE. A slot is filled with
 `PUT /dante/subscriptions`; `assignment: null` releases it and keeps the
-slot. `channels` is read-only in `PATCH`; `content`, `level` and `mute`
-are patchable slot settings. `POST`/`DELETE` on `/inputs` accept only
+slot. `channels` is read-only in `PATCH`; `content`, `level`, `ceiling`,
+`mute` and `solo` are patchable slot settings, and `solo` stays runtime
+only. `POST`/`DELETE` on `/inputs` accept only
 source and zone strips; a Dante slot returns `409 slot_derived`.
 `DELETE /sources/{id}` returns `409 source_in_use` unless `detach=true`,
 which removes it from every zone first. `GET /dante/flows` returns
