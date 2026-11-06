@@ -7,9 +7,10 @@ This document fixes the layout, components and state ownership for the
 WebGUI. It is the contract for Phase 1 (mock UI), Phase 2 (API) and the
 later audio phases. Terms: a **source** is a global input that can feed
 any zone (Spotify, Tidal, AirPlay, local file). A **Dante channel** is a
-network audio channel bound to a zone input or output slot. A **zone**
-mixes its inputs into a master bus, then splits to its outputs
-(speakers).
+mono network audio channel bound to a zone input or output slot. A
+**slot** is one mixer channel or one speaker: either one mono channel or
+one stereo pair of Dante channels. A **zone** mixes its inputs into a
+master bus, then splits to its outputs (speakers).
 
 Decisions already made in `AGENTS.md`: Docker-first, .NET 8 backend,
 React/TypeScript GUI served by the backend, full matrix mixer (per-input
@@ -95,9 +96,9 @@ opens `/zones/:id`.
 |        |                                                              |
 |        | +----------------------------------------------------------+ |
 |        | | DANTE I/O                     budget 2 in / 1 out       | |
-|        | | Inputs  [- 2 +]                Outputs  [- 1 +]          | |
+|        | | Channels In [32 v] Out [32 v]  Layout In (mono) Out (stereo)|
 |        | | IN 1   Amp-1 / Tx 3            [change]            [x]   | |
-|        | | OUT 1  Amp-1 / Rx 1  [Lvl 70] [meter] [change]    [x]   | |
+|        | | OUT 1  Amp-1 / Rx 1-2  [Lvl 70] [meter] [change]  [x]   | |
 |        | +----------------------------------------------------------+ |
 +--------+------------------------------------------------------------+
 ```
@@ -112,10 +113,11 @@ opens `/zones/:id`.
 
 ### 2.2 Mixer
 
-One channel strip per zone input, in list order, then the master strip.
+One channel strip per zone input slot, in list order, then the master
+strip. A stereo slot is one strip that controls both of its channels.
 
 Strip controls:
-- Label: source name, or `IN n` plus the Dante channel.
+- Label: source name, or `IN n` plus the bound Dante channel(s).
 - Type badge: Spotify, Tidal, AirPlay, Local, Dante.
 - Level slider 0-100. Effective gain is `min(level, ceiling)`.
 - Ceiling slider 0-100 (default 100). Caps the level. Editing the
@@ -123,16 +125,17 @@ Strip controls:
 - Mute (M) and solo (S). Solo is per zone and transient: while one or
   more inputs in a zone are soloed, the others are muted. It is not
   persisted and resets on restart.
-- Level meter, -60 to 0 dBFS, stub in Phase 1 (animated bar), real in
-  Phase 3 (SignalR, 20 Hz).
+- Level meter, -60 to 0 dBFS, one bar per channel, stub in Phase 1
+  (animated bar), real in Phase 3 (SignalR, 20 Hz).
 - Remove input (`x`). Removing a source input does not delete the
-  global source; a Dante input slot is removed with its count.
+  global source; a Dante input slot is removed with its channel count.
 
 Master strip: level 0-100, mute, meter. It follows the last stage of
 the zone bus.
 
-Layout: horizontal strips in a wrapping row, max 8 inputs per zone in
-v0.1. Strips scroll horizontally rather than shrink below ~120 px.
+Layout: horizontal strips in a wrapping row, at most 32 channels per
+zone (32 mono strips or 16 stereo strips). Strips scroll horizontally
+rather than shrink below ~120 px.
 
 ### 2.3 Sources panel
 
@@ -172,19 +175,38 @@ with its own level, ceiling and mute.
 
 ### 2.4 Dante I/O panel
 
-Two counters: `Inputs` and `Outputs`, 0-8 each in v0.1.
+Dante carries mono channels. A zone has a channel count per direction,
+chosen from the Dante ladder: **2, 4, 8, 16 or 32 channels**. 32
+channels is 32 mono speakers or 16 stereo speakers. The global budget
+(section 8) caps the sum over all zones.
 
-- Increasing `Inputs` adds a Dante input slot at the end of the mixer
-  (empty channel until assigned).
-- Increasing `Outputs` adds a speaker output slot.
-- Decreasing removes trailing slots. If a slot is routed, confirm
-  first; the route is released.
-- Both counters are disabled with a reason when the global budget
-  would be exceeded.
+```
+Dante channels   Inputs [32 v]   Outputs [32 v]     2 / 4 / 8 / 16 / 32
+[ ] same size for inputs and outputs
+Layout           Inputs  (o) mono  ( ) stereo  ( ) mixed
+                 Outputs ( ) mono  (o) stereo  ( ) mixed
+```
+
+- `mono`: N slots, one channel each. N speakers, one level each.
+- `stereo`: N/2 slots, one L/R pair each. N/2 speakers, one level each.
+- `mixed`: per pair, choose `stereo` or `dual-mono` (two independent
+  channels). This is the mixed mono case: stereo where the speaker has
+  two channels, mono everywhere else.
+- Source inputs sit beside the Dante input slots and do not consume the
+  Dante budget. They have 1 or 2 channels (mono local file, stereo
+  Spotify) and their own strip.
+- The zone bus is stereo. A stereo slot passes L/R; a mono slot carries
+  the L+R downmix, and on the input side its signal is fed to both bus
+  channels. Exact gains belong to #14.
+- Changing the channel count or layout keeps assignments by channel
+  index where possible and asks before dropping the rest.
+- The selects are disabled with a reason when the global budget would
+  be exceeded.
 
 Each input slot: channel picker (device > transmit channel), clear.
-Each output slot: channel picker (device > receive channel), output
-level 0-100, mute, meter, clear.
+Each output slot (= one speaker): channel picker (device > receive
+channel, an adjacent pair for stereo), output level 0-100, mute,
+meter, clear.
 
 Direction is named from the device's point of view and shown that way
 in the picker, because Dante Tx/Rx is the most common source of
@@ -223,13 +245,19 @@ v Stage box    10.0.0.5         | Amp-1 Tx 2   |      -      |   [slot 1]
   a status marker.
 - Matrix rows: device channels in the direction of the active tab.
   Matrix columns: zone input slots (inputs tab) or zone output slots
-  (outputs tab), grouped by zone.
+  (outputs tab), grouped by zone. A stereo slot is one column bound to
+  two adjacent device channels; a mono slot to one.
 - A cell is a dropdown with that zone's free slots plus "unassigned".
-  One channel may feed several zone inputs (fan-out); one zone output
-  maps to exactly one device channel. Assigning an already used cell
-  replaces the previous binding after confirmation.
-- Budget bar shows used and allowed input/output channels. It turns
-  red at the limit and the server rejects assignments over it.
+  One device channel may feed several zone inputs (fan-out); one zone
+  output slot binds one device channel, or an adjacent pair when the
+  slot is stereo. Assigning an already used cell replaces the previous
+  binding after confirmation.
+- The matrix header shows each zone's channel layout, and a mixed zone
+  shows `L/R` or `M` per slot, so the routing is readable without
+  opening the zone.
+- Budget bar shows used and allowed channels (mono channels, not
+  slots). It turns red at the limit and the server rejects assignments
+  over it.
 - Empty state: no devices discovered -> "No Dante devices found",
   scan button, and a link to the network section of Settings.
 
@@ -244,10 +272,14 @@ immediately, no global submit.
 | Group    | Fields                                                                                 |
 | -------- | -------------------------------------------------------------------------------------- |
 | Network  | Dante interface (NIC) select, host name, sample rate 48/96 kHz, latency 0.25/1/5 ms    |
-| Defaults | default input level, default output level, default master level, power-on mute          |
+| Defaults | default input level, default output level, default master level, power-on mute, default channel layout for new zones (mono/stereo/mixed) |
 | Backends | Spotify binary path, Spotify bitrate 160/320, AirPlay binary path, Tidal binary path, local music directory |
-| Budget   | max Dante inputs, max Dante outputs (default 32/32, cap 64/64)                          |
+| Budget   | max Dante inputs and outputs, in channels (v0.1: 32/32, owner cap; #14 confirms against Audinate) |
 | System   | version, audio engine state, restart audio engine, restart source backends, download logs |
+
+A "set every zone to mono" action lives in Defaults: it applies the
+layout to all zones after a confirmation that lists affected zones and
+released stereo pairs.
 
 "Restart" restarts child processes inside the container; it does not
 restart the container. A full container restart stays a Docker action.
@@ -276,7 +308,10 @@ restart the container. A full container restart stays a Docker action.
                            <AddSourceMenu/>       dialog + name prompt
                          </SourcesPanel>
                          <DanteIoPanel>
-                           <SlotCount/> <InputSlotRow/>* <OutputSlotRow/>*
+                           <IoSizeSelect/>       2/4/8/16/32 per direction
+                           <LayoutSelect/>       mono/stereo/mixed per direction
+                           <PairLayoutRow/>*     mixed only
+                           <InputSlotRow/>* <SpeakerRow/>*
                          </DanteIoPanel>
                        </ZonePage>
           /dante       <DantePage>
@@ -311,7 +346,7 @@ context plus `useReducer`. This keeps the first review small.
 
 | State                                            | Owner   | Lifetime            |
 | ------------------------------------------------ | ------- | ------------------- |
-| Zones, inputs, outputs, routing                  | Server  | Persisted           |
+| Zones, inputs, outputs, routing, layout          | Server  | Persisted           |
 | Global sources and their config                  | Server  | Persisted           |
 | Levels, ceilings, mutes, master, output levels   | Server  | Persisted           |
 | Zone name, global settings                       | Server  | Persisted           |
@@ -346,9 +381,23 @@ type SourceKind = "spotify" | "tidal" | "airplay" | "local";
 type SourceStatus = "offline" | "connecting" | "online" | "error";
 type ChannelFlow = "device-tx" | "device-rx";  // device point of view
 
+type ChannelCount = 2 | 4 | 8 | 16 | 32;      // Dante channels per direction
+type LayoutMode = "mono" | "stereo" | "mixed";
+type PairMode = "stereo" | "dual-mono";       // used when LayoutMode = mixed
+
+interface ZoneIo {
+  inChannels: ChannelCount;
+  outChannels: ChannelCount;
+  inLayout: LayoutMode;
+  outLayout: LayoutMode;
+  inPairs?: PairMode[];   // length inChannels/2, mixed only
+  outPairs?: PairMode[];  // length outChannels/2, mixed only
+}
+
 interface Source {
   id: string; kind: SourceKind; name: string;
   status: SourceStatus; detail?: string;
+  channels: 1 | 2;              // mono local file vs stereo stream
 }
 
 interface ChannelRef { deviceId: string; channelIndex: number }
@@ -357,22 +406,23 @@ interface ZoneInput {
   id: string;
   kind: "source" | "dante";
   sourceId?: string;            // kind=source
-  channel?: ChannelRef;         // kind=dante, device-tx
+  channels?: ChannelRef[];      // kind=dante, device-tx; 1 or 2 entries
   level: number;                // 0..100
   ceiling: number;              // 0..100
   mute: boolean;
   solo: boolean;                // runtime only, always false after restart
 }
 
-interface ZoneOutput {
+interface ZoneOutput {          // one speaker
   id: string;
-  channel?: ChannelRef;         // device-rx
+  channels?: ChannelRef[];      // device-rx; 1 or 2 adjacent entries
   level: number; mute: boolean;
   signal: boolean;              // runtime only, for the UI
 }
 
 interface Zone {
   id: string; name: string;
+  io: ZoneIo;
   masterLevel: number; masterMute: boolean;
   inputs: ZoneInput[]; outputs: ZoneOutput[];
 }
@@ -409,7 +459,7 @@ DELETE /zones/{id}/outputs/{outputId}
 GET    /sources                   POST /sources            DELETE /sources/{id}
 POST   /sources/{id}/connect      POST /sources/{id}/disconnect
 GET    /dante/devices             POST /dante/scan
-PUT    /dante/assignments         body: { inputSlotId?, outputSlotId?, channelId? | null }
+PUT    /dante/assignments         body: { inputSlotId?, outputSlotId?, channelIds?: string[] | null }
 GET    /settings                  PUT /settings
 POST   /system/restart            body: { target: "audio" | "sources" }
 ```
@@ -425,12 +475,15 @@ one browser is subscribed (SignalR group per zone).
 
 ## 8. Limits
 
-- Global Dante budget: the server owns the numbers; the UI only reads
-  them. Placeholder defaults for Phase 1 are 32 inputs and 32 outputs
-  with a 64/64 cap. #14 confirms the real figures against Audinate's
-  published limits per link speed and latency.
-- Per zone: 8 mixer inputs, 8 outputs in v0.1 (UI cap that the server
-  enforces too). Configurable later.
+- Global Dante budget: 32 input channels and 32 output channels in
+  v0.1 (owner decision), summed over all zones. The server enforces it;
+  the UI reads it. #14 confirms the figure against Audinate's published
+  limits per link speed and latency.
+- Per zone, per direction: one of 2, 4, 8, 16 or 32 Dante channels.
+  32 channels is 32 mono speakers or 16 stereo speakers; mixed sits in
+  between.
+- Source inputs are additional and do not count towards the Dante
+  budget.
 - Name length 1-64 characters, unique per kind is not required.
 - Levels are integers 0-100; 100 maps to 0 dB, 0 to silence. The
   curve is linear in dB (documented again in the mixer phase).
@@ -473,7 +526,7 @@ Each question has the proposed default; silence means the default.
 | # | Question | Proposed default | Needed by |
 | - | -------- | ---------------- | --------- |
 | 1 | Should a zone's add menu attach existing global sources, not only create new ones? | Yes, "Existing source" entry | Phase 1 |
-| 2 | Per-zone caps (the global budget numbers come from #14) | 8 inputs / 8 outputs per zone | Phase 1 |
+| 2 | What does "mixed" mean exactly: per pair mono/stereo (proposed), or per mono speaker a choice of L, R or L+R? | Per pair `stereo` or `dual-mono`, with automatic downmix | Phase 1 |
 | 3 | Solo is transient, not persisted | Accepted | Phase 1 |
 | 4 | Deleting a zone leaves its sources global and unattached | Accepted | Phase 1 |
 | 5 | `/` opens the last selected zone (else first zone) | Accepted | Phase 1 |
