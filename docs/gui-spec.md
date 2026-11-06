@@ -50,8 +50,8 @@ Main pane shows the selected entry. Routes:
 
 Unknown zone id: show the empty state, no error page. Desktop first,
 minimum width 1024 px. No mobile layout in v0.1. A `/login` route is
-reserved for #21 and renders only when the server reports that access
-control is enabled; Phase 1 has no login.
+reserved for #21. Phase 1 has no login; Phase 2 adds the route shell,
+disabled until the server reports that access control is enabled (#21).
 
 ```
 +---------------------+----------------------------------------------+
@@ -690,17 +690,17 @@ blocking the user (manual channel entry, explicit device list).
 
 ## 11. Open questions (owner sign-off)
 
-Each question has the proposed default; silence means the default.
+Defaults below are accepted unless a row is marked open.
 
-| # | Question | Proposed default | Needed by |
-| - | -------- | ---------------- | --------- |
+| # | Question | Decision | Needed by |
+| - | -------- | -------- | --------- |
 | 1 | Should a zone's add menu attach existing global sources, not only create new ones? | Yes, "Existing source" entry | Phase 1 |
 | 2 | Solo is transient, not persisted | Accepted | Phase 1 |
 | 3 | Deleting a zone leaves its sources global and unattached | Accepted | Phase 1 |
 | 4 | `/` opens the last selected zone (else first zone) | Accepted | Phase 1 |
-| 5 | When does the login screen arrive? It is not in the phase list, but #21 is in the v0.1 roadmap. | Phase 2 shell (disabled) + enabled with #21 | Phase 2 |
+| 5 | When does the login screen arrive? It is not in the phase list, but #21 is in the v0.1 roadmap. | Phase 2 shell, disabled until #21 enables it | Phase 2 |
 | 6 | Level-to-dB curve for faders | 100 = 0 dB, linear in dB, 0 = silence | Phase 3 (#14) |
-| 7 | Tidal Connect has no mature open-source receiver. If the Phase 5 spike fails, is a non-Connect Tidal source acceptable, or is Tidal deferred? | Defer Tidal rather than ship a fake Connect target | Phase 5 |
+| 7 | Tidal Connect has no mature open-source receiver. If the Phase 5 spike fails, is a non-Connect Tidal source acceptable, or is Tidal deferred? | **Open.** Proposed: defer Tidal rather than ship a fake Connect target | Phase 5 |
 
 ## 12. Sign-off
 
