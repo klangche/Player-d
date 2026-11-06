@@ -790,7 +790,8 @@ Defaults below are accepted unless a row is marked open.
 
 ## 12. Sign-off
 
-Approved by: (owner) ______________  Date: __________
+Approved by: (owner) 2026-11-06
+Approved: "approving draft Player-d WebGUI specification (v0.1)"
 
 Approval unlocks Phase 1 only. Phase 1 starts with its own plan and a
 confirmation, per `AGENTS.md`.
