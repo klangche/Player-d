@@ -229,7 +229,7 @@ same shape so it reads as one routing table.
 
 ```
 DANTE CONTROLLER                          [Scan]   last scan 12 s ago
-Budget: 6 / 32 in   4 / 32 out  [############.......................]
+Budget: 6 / 512 in   4 / 512 out [############.......................]
 Direction: ( Inputs )  Outputs
 
 DEVICES                          +--------------------------------------+
@@ -274,7 +274,7 @@ immediately, no global submit.
 | Network  | Dante interface (NIC) select, host name, sample rate 48/96 kHz, latency 0.25/1/5 ms    |
 | Defaults | default input level, default output level, default master level, power-on mute, default channel layout for new zones (mono/stereo/mixed) |
 | Backends | Spotify binary path, Spotify bitrate 160/320, AirPlay binary path, Tidal binary path, local music directory |
-| Budget   | max Dante inputs and outputs, in channels (v0.1: 32/32, owner cap; #14 confirms against Audinate) |
+| Budget   | max Dante inputs and outputs, in channels (v0.1: 512/512 at 48 kHz, 256/256 at 96 kHz; #14 confirms) |
 | System   | version, audio engine state, restart audio engine, restart source backends, download logs |
 
 A "set every zone to mono" action lives in Defaults: it applies the
@@ -475,10 +475,11 @@ one browser is subscribed (SignalR group per zone).
 
 ## 8. Limits
 
-- Global Dante budget: 32 input channels and 32 output channels in
-  v0.1 (owner decision), summed over all zones. The server enforces it;
-  the UI reads it. #14 confirms the figure against Audinate's published
-  limits per link speed and latency.
+- Global Dante budget: 512 input channels and 512 output channels
+  (owner decision), summed over all zones. This is Dante's gigabit
+  ceiling at 48 kHz; it halves at 96 kHz (256/256), which #14 confirms
+  against Audinate's published limits. The server enforces it; the UI
+  reads it.
 - Per zone, per direction: one of 2, 4, 8, 16 or 32 Dante channels.
   32 channels is 32 mono speakers or 16 stereo speakers; mixed sits in
   between.
