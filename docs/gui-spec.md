@@ -365,7 +365,7 @@ immediately, no global submit.
 | Defaults | default input level, default output level, default master level, power-on mute, default channel count (2/4/8/16/32) and layout (mono/stereo/mixed) for new zones |
 | Backends | Spotify binary path, Spotify bitrate 160/320, AirPlay binary path, Tidal binary path, local music directory |
 | Capacity | read-only Dante capacity: channels and streams available, derived from the virtual device's channel count and the sample rate |
-| System   | version, audio engine state, restart audio engine, restart source backends, download logs |
+| System   | version (hardcoded per build), audio engine state, restart audio engine, restart source backends, download logs |
 
 A "set every zone to mono" action lives in Defaults: it applies the
 layout to all zones after a confirmation that lists affected zones and
@@ -376,6 +376,10 @@ loop.
 restart the container. A full container restart stays a Docker action.
 Version and audio-engine state come from `GET /system/status`; the log
 download is `GET /system/logs`.
+
+Version is hardcoded per build (release tag) and never comes from
+settings. Docker images are tagged `:latest` and the forced version
+(e.g. `v0.1.0`); the forced version is the pinned release tag.
 
 ## 5. Component tree
 
@@ -599,7 +603,7 @@ REST, prefix `/api/v1`:
 
 ```
 GET    /health
-GET    /system/status             version, engine state, capacity, clock leader
+GET    /system/status             version (hardcoded per build), engine state, capacity, clock leader
 GET    /system/logs               log archive download
 GET    /zones                     POST /zones
 GET    /zones/{id}                PATCH /zones/{id}        DELETE /zones/{id}
