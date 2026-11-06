@@ -35,7 +35,7 @@ Related issues and boundaries:
 Left sidebar, always visible, three groups:
 
 1. Zones: one entry per zone, plus a `+` button to create one.
-2. Pinned: Dante Controller (global view).
+2. Pinned: Dante Controller, Zone Mixer (both global views).
 3. System: Settings.
 
 Main pane shows the selected entry. Routes:
@@ -45,6 +45,7 @@ Main pane shows the selected entry. Routes:
 | `/`            | Redirect to last zone, or empty state |
 | `/zones/:id`   | Zone view                             |
 | `/dante`       | Dante Controller                      |
+| `/zone-mixer`  | Zone Mixer (zone-to-zone routing)     |
 | `/settings`    | Settings                              |
 
 Unknown zone id: show the empty state, no error page. Desktop first,
@@ -63,6 +64,7 @@ control is enabled; Phase 1 has no login.
 |                     |                                              |
 | ------------------- |                                              |
 | Dante Controller    |                                              |
+| Zone Mixer          |                                              |
 |                     |                                              |
 | ------------------- |                                              |
 | Settings            |                                              |
@@ -117,8 +119,9 @@ One channel strip per zone input slot, in list order, then the master
 strip. A stereo slot is one strip that controls both of its channels.
 
 Strip controls:
-- Label: source name, or `IN n` plus the bound Dante channel(s).
-- Type badge: Spotify, Tidal, AirPlay, Local, Dante.
+- Label: source name, `IN n` plus the bound Dante channel(s), or
+  `From <zone>` for a zone-to-zone link.
+- Type badge: Spotify, Tidal, AirPlay, Local, Dante, Zone.
 - Level slider 0-100. Effective gain is `min(level, ceiling)`.
 - Ceiling slider 0-100 (default 100). Caps the level. Editing the
   ceiling below the current level lowers the level to the ceiling.
@@ -133,9 +136,10 @@ Strip controls:
 Master strip: level 0-100, mute, meter. It follows the last stage of
 the zone bus.
 
-Layout: horizontal strips in a wrapping row, at most 32 channels per
-zone (32 mono strips or 16 stereo strips). Strips scroll horizontally
-rather than shrink below ~120 px.
+Layout: horizontal strips in a wrapping row, at most 32 Dante channels
+per zone (32 mono strips or 16 stereo strips). Strips scroll
+horizontally rather than shrink below ~120 px. Zone links are added and
+removed in the Zone Mixer view and appear here as strips.
 
 ### 2.3 Sources panel
 
@@ -194,7 +198,8 @@ Layout           Inputs  (o) mono  ( ) stereo  ( ) mixed
   two channels, mono everywhere else.
 - Source inputs sit beside the Dante input slots and do not consume the
   Dante budget. They have 1 or 2 channels (mono local file, stereo
-  Spotify) and their own strip.
+  Spotify) and their own strip. Zone links likewise add a strip and no
+  Dante channels.
 - The zone bus is stereo. A stereo slot passes L/R; a mono slot carries
   the L+R downmix, and on the input side its signal is fed to both bus
   channels. Exact gains belong to #14.
@@ -221,7 +226,12 @@ channel list. Shows device name, IP, and sample rate. A manual entry
 (`device name + channel number`) is available when discovery is
 incomplete; see the Phase 4 risk in section 9.
 
-## 3. Dante Controller view
+## 3. Routing views
+
+Two global views: Dante Controller (network routing) and Zone Mixer
+(zone-to-zone links). Both edit the same server state as the zone view.
+
+### 3.1 Dante Controller
 
 Global view over all zones and all discovered devices. Two matrices
 (inputs, outputs) on one page, switched by a tab; each matrix has the
@@ -263,6 +273,43 @@ v Stage box    10.0.0.5         | Amp-1 Tx 2   |      -      |   [slot 1]
 
 The zone's Dante I/O panel and this matrix edit the same server state;
 a change in one is visible in the other after the next state push.
+
+### 3.2 Zone Mixer
+
+N×N matrix of zones. A link feeds one zone's post-master mix into
+another zone as a mixer input. It is the global connect: any zone can
+feed any other zone, with no bulk action.
+
+```
+ZONE MIXER                                          4 links
+Each zone sends its post-master mix; the receiving strip has its own level.
+
+            TO    Living    Kitchen    Showroom    Studio
+FROM Living           -       [ 80 ]         -          -
+     Kitchen       [100]          -       [ 60 ]         -
+     Showroom          -          -           -      [100]
+     Studio            -       [ 90 ]         -          -
+```
+
+- Cell = one link from the row zone to the column zone. Click an empty
+  cell to connect at level 100; click a link to edit level 0-100, mute
+  or disconnect. One link per ordered pair.
+- The send taps the source zone **post-master**: its master level and
+  mute apply before the link level. The receiving strip is a second
+  level stage.
+- The receiving zone gets an input strip labelled `From <zone>` with
+  level, ceiling, mute, solo and meter, like any other strip.
+- Self-links are not offered. A link that would create a cycle (A -> B
+  -> A, or longer) is rejected by the server with `409 zone_cycle`; the
+  UI disables those cells and says why.
+- Links are internal: no Dante channels and no budget.
+- Deleting a zone removes its links in both directions.
+- Empty state with fewer than two zones: prompt to create another zone.
+- The matrix shows zones only. Sources are attached in the zone view.
+
+Example: a "Source" zone receives Spotify and feeds every room zone;
+the room zones stay independent and each keeps its own speaker levels.
+Lowering the Source zone master lowers every room at once.
 
 ## 4. Settings view
 
@@ -317,6 +364,9 @@ restart the container. A full container restart stays a Docker action.
           /dante       <DantePage>
                          <BudgetBar/> <DeviceList/> <RouteMatrix/> <ScanButton/>
                        </DantePage>
+          /zone-mixer  <ZoneMixerPage>
+                         <ZoneMatrix/> <LinkEditor/>
+                       </ZoneMixerPage>
           /settings    <SettingsPage>
                          <SettingsGroup/>*  Network, Defaults, Backends, Budget, System
                        </SettingsPage>
@@ -336,6 +386,7 @@ api/{types.ts,client.ts,ApiProvider.tsx}
 api/mock/{seed.ts,store.ts,mockClient.ts}
 features/zones/{ZonePage,MixerPanel,ChannelStrip,SourcesPanel,AddSourceDialog,DanteIoPanel}.tsx
 features/dante/{DantePage,BudgetBar,DeviceList,RouteMatrix}.tsx
+features/zoneMixer/{ZoneMixerPage,ZoneMatrix,LinkEditor}.tsx
 features/settings/{SettingsPage,SettingsGroup}.tsx
 ```
 
@@ -404,8 +455,9 @@ interface ChannelRef { deviceId: string; channelIndex: number }
 
 interface ZoneInput {
   id: string;
-  kind: "source" | "dante";
+  kind: "source" | "dante" | "zone";
   sourceId?: string;            // kind=source
+  sourceZoneId?: string;        // kind=zone, the feeding zone
   channels?: ChannelRef[];      // kind=dante, device-tx; 1 or 2 entries
   level: number;                // 0..100
   ceiling: number;              // 0..100
@@ -466,7 +518,9 @@ POST   /system/restart            body: { target: "audio" | "sources" }
 
 Rules: all ids are opaque strings (GUIDs). `PATCH` takes partial
 objects. Validation errors return `400` with `{ errors: { field: msg }}`.
-Budget violations return `409` with a machine-readable code. Every
+Budget violations return `409` with a machine-readable code. A zone
+link is created with `POST /zones/{toZoneId}/inputs` and
+`kind="zone"`; a self-link or a cycle returns `409 zone_cycle`. Every
 mutation returns the changed resource and the client refetches the
 affected zone.
 
@@ -483,8 +537,9 @@ one browser is subscribed (SignalR group per zone).
 - Per zone, per direction: one of 2, 4, 8, 16 or 32 Dante channels.
   32 channels is 32 mono speakers or 16 stereo speakers; mixed sits in
   between.
-- Source inputs are additional and do not count towards the Dante
-  budget.
+- Source inputs and zone links do not count towards the Dante budget.
+- Zone links: at most one per ordered pair of zones; no channel budget;
+  cycles and self-links are rejected.
 - Name length 1-64 characters, unique per kind is not required.
 - Levels are integers 0-100; 100 maps to 0 dB, 0 to silence. The
   curve is linear in dB (documented again in the mixer phase).
