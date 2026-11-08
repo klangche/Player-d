@@ -39,9 +39,12 @@ services:
       PLAYERD_SAMPLE_RATE: ${PLAYERD_SAMPLE_RATE:-48000}
       # Optional: license key text. Can also be imported in Settings.
       PLAYERD_LICENSE: ${PLAYERD_LICENSE:-}
+      # Set to true and redeploy to print a new admin password in the log.
+      PLAYERD_RESET_PASSWORD: ${PLAYERD_RESET_PASSWORD:-false}
     volumes:
-      # Config, auth hash, license. Named volume by default; set
-      # PLAYERD_DATA to a host path (e.g. /opt/player-d) for a folder.
+      # Config, auth hash, license. The named volume player-d-data by
+      # default, or set PLAYERD_DATA to an absolute host path
+      # (e.g. /opt/player-d) for a folder.
       - ${PLAYERD_DATA:-player-d-data}:/config
       # Audio and control sockets shared between the services.
       - player-d-run:/run/player-d

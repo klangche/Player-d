@@ -20,8 +20,11 @@ set up on the host by hand.
 - Host networking: the stack uses `network_mode: host` for Dante audio,
   the PTP clock and mDNS. Docker Desktop on Windows or macOS does not
   provide this; use a Linux host or VM.
-- Free UDP ports for PTP (319, 320) and mDNS (5353), and the web port
-  (8080 by default).
+- Host ports: with host networking every service binds its ports
+  directly on the host (web port, Dante, PTP, mDNS, Spotify, AirPlay).
+  Stop a PTP daemon on the host (for example `ptp4l`) before starting
+  the stack. An `avahi-daemon` on the host can stay; Player-d uses it
+  when present.
 
 ## 1. Portainer stack
 
@@ -63,8 +66,9 @@ docker compose up -d
 2. Open `http://<host>:8080` (or your `PLAYERD_HTTP_PORT`).
 3. Log in and set a new password. The generated password stops working.
 
-Lost password: stop the stack, delete `auth.json` in the data location
-(see below), start again. A new password is printed in the log.
+Lost password: set `PLAYERD_RESET_PASSWORD=true` in the stack and
+redeploy. A new password is printed in the log; set the variable back to
+`false` after logging in.
 
 ## Settings
 
@@ -72,12 +76,17 @@ Lost password: stop the stack, delete `auth.json` in the data location
 | --------------------- | ---------------- | -------------------------------------------- |
 | `PLAYERD_TAG`         | `latest`         | Image tag for every service                  |
 | `PLAYERD_HTTP_PORT`   | `8080`           | Web GUI port                                 |
-| `PLAYERD_HOSTNAME`    | `player-d`       | mDNS name: `<zone>.player-d.local`           |
+| `PLAYERD_HOSTNAME`    | `player-d`       | mDNS name: `<zone>.<PLAYERD_HOSTNAME>.local` |
 | `PLAYERD_DANTE_NIC`   | `eth0`           | Interface on the Dante network               |
 | `PLAYERD_SAMPLE_RATE` | `48000`          | `48000` or `96000`                           |
-| `PLAYERD_DATA`        | `player-d-data`  | Named volume, or a host folder such as `/opt/player-d` |
+| `PLAYERD_DATA`        | `player-d-data`  | `player-d-data` (default named volume) or an absolute host path such as `/opt/player-d` |
 | `PLAYERD_LICENSE`     | empty            | Optional license key text                    |
+| `PLAYERD_RESET_PASSWORD` | `false`       | `true` prints a new admin password on start  |
 | `TZ`                  | `Etc/UTC`        | Time zone for logs                           |
+
+The network values (port, host name, Dante NIC, sample rate) are set
+only in the stack. Settings > Network shows them read-only; change them
+in Portainer or `.env` and redeploy.
 
 Pin a version instead of `latest` by setting `PLAYERD_TAG`, for example
 `PLAYERD_TAG=0.2.0`.

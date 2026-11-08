@@ -39,14 +39,16 @@ defaults do not fit. Deploy.
 **Docker Compose:**
 
 ```
-cp .env.example .env    # optional, edit as needed
+curl -fsSLO https://raw.githubusercontent.com/klangche/Player-d/main/docker-compose.yml
+curl -fsSL  https://raw.githubusercontent.com/klangche/Player-d/main/.env.example -o .env
+# edit .env (optional)
 docker compose up -d
 ```
 
 First login: read the generated password in the `player-d-core` log
 (Portainer: Containers > player-d-core > Logs; Compose:
-`docker compose logs core`), open `http://<host>:8080` and set a new
-password.
+`docker compose logs core`), open `http://<host>:8080` (or your
+`PLAYERD_HTTP_PORT`) and set a new password.
 
 Not released yet: the images are published with the first release.
 
