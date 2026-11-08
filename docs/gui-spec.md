@@ -189,7 +189,7 @@ Cards, each saved on its own:
 | Card     | Content                                                        |
 | -------- | -------------------------------------------------------------- |
 | Account  | change password, sign out of all sessions                      |
-| Network  | Dante NIC, host name (`player-d`), web port, sample rate 48/96 kHz, latency |
+| Network  | read-only: Dante NIC, host name, web port, sample rate (set in the stack, see `docs/install.md`); editable: latency |
 | Services | Spotify, AirPlay, Tidal: enabled, status, restart; Spotify bitrate |
 | Defaults | default levels for new zones and speakers, power-on mute       |
 | License  | license holder, edition, issue date, import a license file     |
@@ -205,8 +205,8 @@ Cards, each saved on its own:
   characters) before anything else loads.
 - The session lasts 30 days on the device, and can be revoked in
   Settings.
-- Reset: deleting the auth file in the config volume regenerates a
-  first-run password.
+- Reset: `PLAYERD_RESET_PASSWORD=true` in the stack prints a new
+  password on the next start (`docs/install.md`).
 
 ## 8. State and API boundary
 

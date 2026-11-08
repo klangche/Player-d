@@ -248,3 +248,8 @@ Filled in by the setup pull request. Changed only by the owner.
     with a generated first-run password that must be changed. Offline
     signed lifetime license per company. WebGUI first, mobile-first,
     Sonos-inspired style (no Sonos assets or trademarks).
+  - 2026-11-08: install two ways from one sample `docker-compose.yml`:
+    Portainer stack (main way) and Docker Compose. Images, volumes,
+    folders and settings are all declared in the stack; settings are
+    environment variables with defaults (`.env.example`). Images on
+    GHCR, `latest` tag by default.
