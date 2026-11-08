@@ -14,7 +14,7 @@ Terms:
 
 ## 1. Design language
 
-Sonos-inspired: calm, product-grade, content first. It takes the style
+Sonos-inspired: plain, content first. It takes the style
 only; no Sonos logo, fonts, icons or wording.
 
 - Typography: one sans family (Inter, self-hosted). Large titles
@@ -32,13 +32,14 @@ only; no Sonos logo, fonts, icons or wording.
 - Mobile-first: a single column at 390 px, two columns from 1024 px
   (zone list + zone), a three-pane desktop layout from 1440 px.
 - All texts live in one strings file with stable keys. English ships
-  first; Swedish is the second language.
+  first; the second language is open (section 10, #2).
 
 ## 2. Navigation
 
-Mobile: a bottom tab bar. Desktop: the same entries in a left rail.
+Mobile: a bottom tab bar with Zones, Setup and Settings. Desktop: the
+same entries in a left rail. The other screens below are not tabs.
 
-| Tab      | Route              | Content                              |
+| Screen   | Route              | Content                              |
 | -------- | ------------------ | ------------------------------------ |
 | Zones    | `/`                | zone cards with now playing, volume  |
 | Zone     | `/z/:slug`         | zone view (section 4)                |
@@ -53,9 +54,10 @@ Zone address: opening `<slug>.player-d.local:<port>` or
 - Setup and Settings are hidden; they stay reachable from the main
   address.
 
-A login is still required. Slugs are lowercase ASCII made from the
-zone name and are unique; renaming a zone changes its slug and asks
-first.
+A login is still required. Slugs are made from the zone name and are
+unique. They are also mDNS host labels: `a-z`, `0-9` and `-` only, no
+leading or trailing `-`, at most 63 characters. Renaming a zone changes
+its slug and asks first.
 
 ## 3. Zones (home)
 
@@ -138,8 +140,8 @@ first.
 - "All zones" view: the same layout. Its speakers list is replaced by
   "Sends to": one row per zone with that zone's level for the "All
   zones" source.
-- Levels: integers 0-100; 100 = 0 dB, 0 = silence, linear in dB in
-  between. Sliders send updates debounced at about 80 ms; the server
+- Levels: integers 0-100; 100 = 0 dB, 1 = -60 dB, linear in dB from
+  1 to 100, 0 = silence. Sliders send updates debounced at about 80 ms; the server
   echo wins.
 
 ## 5. Setup: Dante controller
