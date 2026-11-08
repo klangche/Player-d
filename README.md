@@ -41,8 +41,7 @@ Then open `http://<host>:<port>` and change the password.
 1. Open the Dante controller and patch speakers into zones.
 2. Open a zone: pick a source, set the master level and each speaker's
    level.
-3. Play from the Spotify, AirPlay or Tidal app to the zone's name, or to
-   "All zones".
+3. Play from the Spotify, AirPlay or Tidal app to the zone's name.
 
 ## Platforms
 
@@ -54,7 +53,6 @@ Then open `http://<host>:<port>` and change the password.
 - WebGUI: TypeScript (React), served by `core`
 - Backends, one container each: `dante`, `spotify` (librespot),
   `airplay` (shairport-sync), `tidal`
-- Plan: issue #27
 
 Contributors and AI agents follow AGENTS.md.
 
