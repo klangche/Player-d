@@ -27,14 +27,28 @@ Intended use: showrooms, stores and homes.
 
 ## Install
 
-Not released yet. Planned:
+Two ways, both from the same sample stack file,
+[`docker-compose.yml`](docker-compose.yml). Images use the `latest` tag
+by default. Details: [docs/install.md](docs/install.md).
+
+**Portainer (recommended):** Stacks > Add stack > Repository, URL of
+this repository, compose path `docker-compose.yml`. Set variables from
+[`.env.example`](.env.example) under "Environment variables" if the
+defaults do not fit. Deploy.
+
+**Docker Compose:**
 
 ```
+cp .env.example .env    # optional, edit as needed
 docker compose up -d
-docker compose logs core   # first-run password
 ```
 
-Then open `http://<host>:<port>` and change the password.
+First login: read the generated password in the `player-d-core` log
+(Portainer: Containers > player-d-core > Logs; Compose:
+`docker compose logs core`), open `http://<host>:8080` and set a new
+password.
+
+Not released yet: the images are published with the first release.
 
 ## Usage
 

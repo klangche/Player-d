@@ -1,0 +1,96 @@
+# Player-d sample stack.
+#
+# One file for both install ways:
+#   - Portainer: Stacks > Add stack > Repository (compose path
+#     `docker-compose.yml`) or Web editor (paste this file). Set the
+#     variables below under "Environment variables".
+#   - Docker Compose: copy `.env.example` to `.env`, edit, then
+#     `docker compose up -d`.
+#
+# Everything Player-d needs is declared here: images, volumes, folders,
+# capabilities and settings. Nothing is configured on the host by hand.
+# Every variable has a default, so the stack also starts with none set.
+
+name: player-d
+
+x-common: &common
+  restart: unless-stopped
+  # Host networking is required: Dante audio, PTP clock and mDNS
+  # (zone addresses, Spotify/AirPlay discovery) do not cross Docker NAT.
+  network_mode: host
+  environment: &common-env
+    TZ: ${TZ:-Etc/UTC}
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: "3"
+
+services:
+  core:
+    <<: *common
+    image: ghcr.io/klangche/player-d-core:${PLAYERD_TAG:-latest}
+    container_name: player-d-core
+    environment:
+      <<: *common-env
+      PLAYERD_HTTP_PORT: ${PLAYERD_HTTP_PORT:-8080}
+      PLAYERD_HOSTNAME: ${PLAYERD_HOSTNAME:-player-d}
+      PLAYERD_DANTE_NIC: ${PLAYERD_DANTE_NIC:-eth0}
+      PLAYERD_SAMPLE_RATE: ${PLAYERD_SAMPLE_RATE:-48000}
+      # Optional: license key text. Can also be imported in Settings.
+      PLAYERD_LICENSE: ${PLAYERD_LICENSE:-}
+    volumes:
+      # Config, auth hash, license. Named volume by default; set
+      # PLAYERD_DATA to a host path (e.g. /opt/player-d) for a folder.
+      - ${PLAYERD_DATA:-player-d-data}:/config
+      # Audio and control sockets shared between the services.
+      - player-d-run:/run/player-d
+
+  dante:
+    <<: *common
+    image: ghcr.io/klangche/player-d-dante:${PLAYERD_TAG:-latest}
+    container_name: player-d-dante
+    environment:
+      <<: *common-env
+      PLAYERD_DANTE_NIC: ${PLAYERD_DANTE_NIC:-eth0}
+      PLAYERD_SAMPLE_RATE: ${PLAYERD_SAMPLE_RATE:-48000}
+    cap_add:
+      - NET_ADMIN   # PTP and multicast on the Dante NIC
+      - SYS_NICE    # real-time scheduling for audio threads
+    volumes:
+      - player-d-run:/run/player-d
+    depends_on:
+      - core
+
+  spotify:
+    <<: *common
+    image: ghcr.io/klangche/player-d-spotify:${PLAYERD_TAG:-latest}
+    container_name: player-d-spotify
+    volumes:
+      - player-d-run:/run/player-d
+      - player-d-spotify-cache:/cache
+    depends_on:
+      - core
+
+  airplay:
+    <<: *common
+    image: ghcr.io/klangche/player-d-airplay:${PLAYERD_TAG:-latest}
+    container_name: player-d-airplay
+    volumes:
+      - player-d-run:/run/player-d
+    depends_on:
+      - core
+
+  tidal:
+    <<: *common
+    image: ghcr.io/klangche/player-d-tidal:${PLAYERD_TAG:-latest}
+    container_name: player-d-tidal
+    volumes:
+      - player-d-run:/run/player-d
+    depends_on:
+      - core
+
+volumes:
+  player-d-data:
+  player-d-run:
+  player-d-spotify-cache:
