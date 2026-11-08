@@ -23,8 +23,7 @@ set up on the host by hand.
 - Host ports: with host networking every service binds its ports
   directly on the host (web port, Dante, PTP, mDNS, Spotify, AirPlay).
   Stop a PTP daemon on the host (for example `ptp4l`) before starting
-  the stack. An `avahi-daemon` on the host can stay; Player-d uses it
-  when present.
+  the stack. An `avahi-daemon` on the host can stay running.
 
 ## 1. Portainer stack
 
@@ -68,7 +67,8 @@ docker compose up -d
 
 Lost password: set `PLAYERD_RESET_PASSWORD=true` in the stack and
 redeploy. A new password is printed in the log; set the variable back to
-`false` after logging in.
+`false` after logging in. While `true`, every start (including a host
+reboot) prints a new password and the previous one stops working.
 
 ## Settings
 
