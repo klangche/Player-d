@@ -1,62 +1,64 @@
 # Player-d
 
-Player-d is a Dante audio server for Windows and Docker. It is a virtual
-Dante soundcard and a virtual Dante mixer with Spotify Connect and Tidal.
+Player-d is a multi-room audio system for Dante speakers, in the spirit
+of Sonos. It runs as a Docker Compose stack on a Linux host: a virtual
+Dante soundcard, a mixer per zone, a built-in Dante controller, and
+Spotify Connect, AirPlay and Tidal Connect per zone. Everything is
+controlled from a web interface.
 
-One server runs multiple Spotify Connect and multiple Tidal connections
-and sends different sources to different Dante speakers. A built-in zone
-manager creates zones, maps inputs to zones and controls them; everything
-is controlled through a WebGUI in the browser.
-
-Each zone has a custom name and at least one input; multiple inputs in a
-zone are mixed. Volume is set per zone and per speaker, so different
-speaker sizes and models can be mixed.
-
-Intended use: showrooms, stores and home. Like Sonos, but it works with
-every Dante speaker.
+Intended use: showrooms, stores and homes.
 
 ## Features
 
-- Spotify Connect sources, multiple per server
-- Tidal sources, multiple per server
-- Local audio files as sources
-- External Dante sources: any Dante device on the network can be added
-  as an input
-- Zones with custom names; multiple inputs per zone, mixed
-- Volume per zone and per speaker
-- Built-in zone manager: create zones, map inputs to zones
-- WebGUI: everything is controlled from the browser
+- Virtual Dante soundcard, up to 256 x 256 channels
+- Built-in Dante controller: patch speakers (and Dante inputs) into
+  zones once; everything else is done per zone
+- Zones with custom names, each with its own mixer: a level per source,
+  a level per speaker (speakers can be different models and sizes) and
+  a master level
+- "All zones": a built-in zone that plays to every zone at once
+- Per zone: a Spotify Connect device, an AirPlay target and a Tidal
+  Connect target, named after the zone
+- Own web address per zone: `<zone>.player-d.local:<port>` (mDNS), or
+  `<host>:<port>/z/<zone>`
+- Login: every installation generates a unique password, printed once in
+  the log, which must be changed at the first login
+- Lifetime license per company, verified offline, unlimited use
 
 ## Install
 
 Not released yet. Planned:
 
-- Windows: native application (installer)
-- Docker: Linux container
+```
+docker compose up -d
+docker compose logs core   # first-run password
+```
+
+Then open `http://<host>:<port>` and change the password.
 
 ## Usage
 
-Open the WebGUI in a browser on the Player-d host, then:
-
-1. Create zones with custom names.
-2. Map inputs (Spotify, Tidal, local, external Dante) to zones.
-3. Set volume per zone and per speaker.
-
-Details are documented with the first release.
+1. Open the Dante controller and patch speakers into zones.
+2. Open a zone: pick a source, set the master level and each speaker's
+   level.
+3. Play from the Spotify, AirPlay or Tidal app to the zone's name, or to
+   "All zones".
 
 ## Platforms
 
-- Windows: native application
-- Docker: Linux container
+- Docker on Linux (host networking is required for Dante, PTP and mDNS)
 
 ## Development
 
-- Backend: C#/.NET 8
-- WebGUI: TypeScript (React), served by the backend
-- Built from open source components
+- `core`: C#/.NET 8 (API, mixer, Dante controller, auth, license)
+- WebGUI: TypeScript (React), served by `core`
+- Backends, one container each: `dante`, `spotify` (librespot),
+  `airplay` (shairport-sync), `tidal`
+- Plan: issue #27
 
 Contributors and AI agents follow AGENTS.md.
 
 ## License
 
-TBD.
+Commercial: lifetime license per company. Third-party components keep
+their own licenses; see each service.
