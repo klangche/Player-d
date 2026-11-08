@@ -221,21 +221,30 @@ Plan, then steps. Everything in GitHub, nothing in extra files.
 Filled in by the setup pull request. Changed only by the owner.
 
 - Branch protection: none
-- Goal: Player-d: a Dante audio server. A virtual Dante soundcard and a
-  virtual Dante mixer with Spotify Connect, Tidal, local and external
-  Dante sources. One server runs multiple Spotify and Tidal connections
-  and sends different sources to different Dante speakers. Zones have
-  custom names, at least one input; multiple inputs are mixed. Volume is
-  set per zone and per speaker. A built-in zone manager (create zones,
-  map inputs to zones) and a WebGUI control everything. Like Sonos, but
-  with every Dante speaker, for showrooms, stores and homes.
-- Users and platforms: store, showroom and home users; Windows (native
-  application) and Docker (Linux container).
-- Repository structure: one repository: backend + WebGUI inside it.
-- Stack: C#/.NET 8; TypeScript (React) WebGUI served by the same app.
+- Goal: Player-d: a Sonos replacement for Dante speakers. A Docker
+  Compose stack with a virtual Dante soundcard (up to 256 x 256
+  channels), a mixer per zone, a built-in Dante controller to patch
+  speakers into zones, and Spotify Connect, AirPlay and Tidal Connect
+  per zone. A built-in "All zones" zone plays to every zone. Every zone
+  has its own mixer with a level per source, per speaker and a master
+  level, and its own web address. A Sonos-inspired WebGUI controls
+  everything. For showrooms, stores and homes; sold as a lifetime
+  license per company with unlimited use.
+- Users and platforms: showroom, store and home users; Docker on a Linux
+  host (host networking for Dante, PTP and mDNS). No native Windows app.
+- Repository structure: one repository: all stack services in it.
+- Stack: C#/.NET 8 `core` service (API, mixer, Dante controller, auth,
+  license); TypeScript (React) WebGUI served by `core`; one container
+  per backend (`dante`, `spotify`, `airplay`, `tidal`).
 - Decisions:
   - 2026-11-05: v1 setup. Sources: Spotify Connect, Tidal, local files,
     external Dante. Open source components only. License: TBD.
-  - 2026-11-05: first plan must resolve the unofficial Spotify/Tidal
-    Connect device protocols and the Linux (Docker) Dante audio path
-    (the Windows Dante Virtual Soundcard SDK does not run in a container).
+  - 2026-11-08: restart as v0.2 (plan #27). Docker only; Windows
+    dropped. Dante backend behind an interface: open stack (Inferno /
+    AES67) first, licensed Audinate DEP later for the commercial build.
+    AirPlay added. Max 256 x 256 Dante channels. "All zones" zone
+    replaces the zone-to-zone matrix. Zone URLs via mDNS
+    (`<zone>.player-d.local`) with path fallback `/z/<zone>`. Login
+    with a generated first-run password that must be changed. Offline
+    signed lifetime license per company. WebGUI first, mobile-first,
+    Sonos-inspired style (no Sonos assets or trademarks).
