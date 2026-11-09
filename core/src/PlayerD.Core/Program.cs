@@ -1,7 +1,7 @@
 var builder = WebApplication.CreateBuilder(args);
 
 var port = builder.Configuration["PLAYERD_HTTP_PORT"] ?? "8080";
-builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+builder.WebHost.UseUrls($"http://+:{port}");
 
 var app = builder.Build();
 

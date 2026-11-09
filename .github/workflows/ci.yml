@@ -12,6 +12,11 @@ on:
 permissions:
   contents: read
 
+# Pushes to dev publish in order; a second push waits for the first.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   version:
     runs-on: ubuntu-latest

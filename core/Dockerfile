@@ -15,11 +15,12 @@ WORKDIR /src
 COPY core/src/PlayerD.Core/PlayerD.Core.csproj core/src/PlayerD.Core/packages.lock.json ./
 RUN dotnet restore --locked-mode
 COPY core/src/PlayerD.Core/ ./
-RUN dotnet publish -c Release --no-restore -o /out
+RUN dotnet publish -c Release --no-restore -p:UseAppHost=false -o /out
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0
 ARG VERSION=dev
-ENV PLAYERD_VERSION=$VERSION
+ENV PLAYERD_VERSION=$VERSION \
+    ASPNETCORE_HTTP_PORTS=
 WORKDIR /app
 COPY --from=core /out ./
 COPY --from=web /web/dist ./wwwroot

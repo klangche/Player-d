@@ -86,8 +86,10 @@ Local GUI development: run `core` (`dotnet run --project
 core/src/PlayerD.Core`) and `npm run dev` in `web`; Vite proxies `/api`
 to port 8080.
 
-Releases: bump `VERSION`, merge `dev` into `main`, then run the
-"Release" workflow on `main` in GitHub Actions.
+Releases: `VERSION` holds the next version; betas from `dev` are
+`<VERSION>-beta.<n>`. To release, merge `dev` into `main` and run the
+"Release" workflow on `main` in GitHub Actions. Then bump `VERSION` on
+`dev` (in a pull request) to the next version.
 
 Contributors and AI agents follow AGENTS.md.
 

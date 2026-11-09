@@ -25,7 +25,8 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
-      - run: dotnet test core/PlayerD.sln --nologo -v q
+      - run: dotnet restore core/PlayerD.sln --locked-mode
+      - run: dotnet test core/PlayerD.sln --no-restore --nologo -v q
       - uses: actions/setup-node@v4
         with:
           node-version: 22
