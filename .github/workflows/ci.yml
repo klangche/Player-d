@@ -1,0 +1,46 @@
+# Pull requests: test and build, push nothing.
+# Push to dev: publish beta images (`<version>-beta.<run>` and `dev`)
+# and a GitHub pre-release.
+name: CI
+
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev]
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      beta: ${{ steps.v.outputs.beta }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        run: echo "beta=$(cat VERSION)-beta.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: version
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/build.yml
+    with:
+      push: ${{ github.event_name == 'push' }}
+      version: ${{ needs.version.outputs.beta }}
+      tags: ${{ needs.version.outputs.beta }},dev
+
+  prerelease:
+    if: github.event_name == 'push'
+    needs: [version, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: v${{ needs.version.outputs.beta }}
+        run: gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease --generate-notes

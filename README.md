@@ -50,7 +50,10 @@ First login: read the generated password in the `player-d-core` log
 `docker compose logs core`), open `http://<host>:8080` (or your
 `PLAYERD_HTTP_PORT`) and set a new password.
 
-Not released yet: the images are published with the first release.
+Images are published to GHCR by GitHub Actions: `latest` and `<version>`
+by the release workflow on `main`, beta builds as `dev` and
+`<version>-beta.<n>` on every merge into `dev`. Until the first release,
+set `PLAYERD_TAG=dev` to run the newest beta.
 
 ## Usage
 
@@ -68,7 +71,23 @@ Not released yet: the images are published with the first release.
 - `core`: C#/.NET 8 (API, mixer, Dante controller, auth, license)
 - WebGUI: TypeScript (React), served by `core`
 - Backends, one container each: `dante`, `spotify` (librespot),
-  `airplay` (shairport-sync), `tidal`
+  `airplay` (shairport-sync), `tidal`. Until their steps land they are
+  placeholder images (`services/placeholder`) that idle.
+
+Build and test:
+
+```
+dotnet test core/PlayerD.sln
+cd web && npm ci && npm test && npm run build
+docker build -f core/Dockerfile -t player-d-core .
+```
+
+Local GUI development: run `core` (`dotnet run --project
+core/src/PlayerD.Core`) and `npm run dev` in `web`; Vite proxies `/api`
+to port 8080.
+
+Releases: bump `VERSION`, merge `dev` into `main`, then run the
+"Release" workflow on `main` in GitHub Actions.
 
 Contributors and AI agents follow AGENTS.md.
 

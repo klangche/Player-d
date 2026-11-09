@@ -89,7 +89,23 @@ only in the stack. Settings > Network shows them read-only; change them
 in Portainer or `.env` and redeploy.
 
 Pin a version instead of `latest` by setting `PLAYERD_TAG`, for example
-`PLAYERD_TAG=0.2.0`.
+`PLAYERD_TAG=0.2.0`. `PLAYERD_TAG=dev` follows the newest beta build
+from the `dev` branch.
+
+## Images
+
+The images are on GHCR (`ghcr.io/klangche/player-d-*`) for `amd64` and
+`arm64`. Tags:
+
+| Tag                  | Published by                         |
+| -------------------- | ------------------------------------ |
+| `latest`, `<version>` | Release workflow, from `main`       |
+| `dev`, `<version>-beta.<n>` | Every merge into `dev`        |
+
+GHCR makes a new package private. Either set each of the five packages
+to public (GitHub > Packages > package > Package settings > Change
+visibility), or add `ghcr.io` as a registry in Portainer (Registries >
+Add registry > Custom, with a GitHub token that has `read:packages`).
 
 ## Data and secrets
 
