@@ -7,9 +7,10 @@ both from the same file, [`docker-compose.yml`](../docker-compose.yml):
 2. Docker Compose
 
 Everything the stack needs is declared in that file: images, volumes,
-folders, capabilities and settings. Settings are environment variables
-with defaults, listed in [`.env.example`](../.env.example). Nothing is
-set up on the host by hand.
+folders, capabilities and settings. The settings are plain values in the
+`x-settings` block at the top of the file; edit them there. There is no
+`.env` file and no Portainer environment variable to set. The README
+shows the same file. Nothing is set up on the host by hand.
 
 ## Requirements
 
@@ -27,31 +28,30 @@ set up on the host by hand.
 
 ## 1. Portainer stack
 
-**From the repository** (receives updates on redeploy):
+**From the web editor** (main way):
 
 1. Stacks > Add stack, name `player-d`.
-2. Build method: Repository.
-   - Repository URL: `https://github.com/klangche/Player-d`
-   - Reference: `refs/heads/main`
-   - Compose path: `docker-compose.yml`
-3. Environment variables: add any variable from `.env.example` whose
-   default does not fit. The usual one is `PLAYERD_DANTE_NIC`. You can
-   also use "Load variables from .env file".
+2. Build method: Web editor. Paste the YAML from the README (or
+   `docker-compose.yml`).
+3. Edit the settings at the top. The usual one is `PLAYERD_DANTE_NIC`.
 4. Deploy the stack.
 
-**From the web editor:** Build method: Web editor, paste the contents of
-`docker-compose.yml`, then follow steps 3 and 4.
+**Update:** Stacks > player-d > Update the stack, with "Re-pull image
+and redeploy" switched on. With the `latest` tag this moves to the
+newest release. Change settings the same way: edit the YAML in the
+editor, then Update the stack.
 
-**Update:** Stacks > player-d > Pull and redeploy, with "Re-pull image"
-switched on. With the `latest` tag this moves to the newest release.
+**From the repository:** Build method: Repository, URL
+`https://github.com/klangche/Player-d`, reference `refs/heads/main`,
+compose path `docker-compose.yml`. This deploys the file with its
+default settings; to change a setting, use the web editor instead.
 
 ## 2. Docker Compose
 
 ```
 mkdir player-d && cd player-d
 curl -fsSLO https://raw.githubusercontent.com/klangche/Player-d/main/docker-compose.yml
-curl -fsSL  https://raw.githubusercontent.com/klangche/Player-d/main/.env.example -o .env
-# edit .env (optional)
+# edit the settings at the top of docker-compose.yml (optional)
 docker compose up -d
 ```
 
@@ -65,32 +65,40 @@ docker compose up -d
 2. Open `http://<host>:8080` (or your `PLAYERD_HTTP_PORT`).
 3. Log in and set a new password. The generated password stops working.
 
-Lost password: set `PLAYERD_RESET_PASSWORD=true` in the stack and
-redeploy. A new password is printed in the log; set the variable back to
-`false` after logging in. While `true`, every start (including a host
+Lost password: set `PLAYERD_RESET_PASSWORD: "true"` in the YAML and
+redeploy. A new password is printed in the log; set it back to
+`"false"` after logging in. While `true`, every start (including a host
 reboot) prints a new password and the previous one stops working.
 
 ## Settings
 
-| Variable              | Default          | Meaning                                      |
-| --------------------- | ---------------- | -------------------------------------------- |
-| `PLAYERD_TAG`         | `latest`         | Image tag for every service                  |
-| `PLAYERD_HTTP_PORT`   | `8080`           | Web GUI port                                 |
-| `PLAYERD_HOSTNAME`    | `player-d`       | mDNS name: `<zone>.<PLAYERD_HOSTNAME>.local` |
-| `PLAYERD_DANTE_NIC`   | `eth0`           | Interface on the Dante network               |
-| `PLAYERD_SAMPLE_RATE` | `48000`          | `48000` or `96000`                           |
-| `PLAYERD_DATA`        | `player-d-data`  | `player-d-data` (default named volume) or an absolute host path such as `/opt/player-d` |
-| `PLAYERD_LICENSE`     | empty            | Optional license key text                    |
-| `PLAYERD_RESET_PASSWORD` | `false`       | `true` prints a new admin password on start  |
-| `TZ`                  | `Etc/UTC`        | Time zone for logs                           |
+All in the `x-settings` block at the top of the YAML. Every service gets
+the same values.
+
+| Setting                  | Default    | Meaning                                      |
+| ------------------------ | ---------- | -------------------------------------------- |
+| `PLAYERD_HTTP_PORT`      | `"8080"`   | Web GUI port                                 |
+| `PLAYERD_HOSTNAME`       | `player-d` | mDNS name: `<zone>.<PLAYERD_HOSTNAME>.local` |
+| `PLAYERD_DANTE_NIC`      | `eth0`     | Interface on the Dante network               |
+| `PLAYERD_SAMPLE_RATE`    | `"48000"`  | `"48000"` or `"96000"`                       |
+| `PLAYERD_LICENSE`        | `""`       | Optional license key text                    |
+| `PLAYERD_RESET_PASSWORD` | `"false"`  | `"true"` prints a new admin password on start |
+| `TZ`                     | `Etc/UTC`  | Time zone for logs                           |
+
+Keep numbers and `true`/`false` in quotes.
+
+Two more settings are elsewhere in the file:
+
+- Image tag: `:latest` on each of the five `image:` lines. Change all
+  five to pin a version (for example `:0.2.0`) or to `:dev` for the
+  newest beta build from the `dev` branch.
+- Data location: `player-d-data:/config` under `core` uses a named
+  volume. For a host folder, replace it with an absolute path, for
+  example `/opt/player-d:/config`.
 
 The network values (port, host name, Dante NIC, sample rate) are set
-only in the stack. Settings > Network shows them read-only; change them
-in Portainer or `.env` and redeploy.
-
-Pin a version instead of `latest` by setting `PLAYERD_TAG`, for example
-`PLAYERD_TAG=0.2.0`. `PLAYERD_TAG=dev` follows the newest beta build
-from the `dev` branch.
+only in the YAML. Settings > Network shows them read-only; change them
+in the YAML and redeploy.
 
 ## Images
 
@@ -114,9 +122,9 @@ Add registry > Custom, with a GitHub token that has `read:packages`).
   that volume or folder.
 - No secret is needed to start. The admin password is generated on the
   first start and only its hash is stored.
-- The license key is entered either in Settings or as `PLAYERD_LICENSE`.
-  In Portainer, stack environment variables are stored by Portainer and
-  are not part of the compose file.
+- The license key is entered either in Settings or as `PLAYERD_LICENSE`
+  in the YAML. A key in the YAML is stored by Portainer as part of the
+  stack; leave it empty and use Settings if that is a concern.
 
 ## Services
 
