@@ -22,6 +22,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - run: scripts/check-readme-compose.sh
+      - run: docker compose -f docker-compose.yml config --quiet
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
