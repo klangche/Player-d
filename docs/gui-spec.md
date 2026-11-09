@@ -205,8 +205,8 @@ Cards, each saved on its own:
   characters) before anything else loads.
 - The session lasts 30 days on the device, and can be revoked in
   Settings.
-- Reset: `PLAYERD_RESET_PASSWORD=true` in the stack prints a new
-  password on the next start (`docs/install.md`).
+- Reset: `PLAYERD_RESET_PASSWORD: "true"` in the stack YAML prints a
+  new password on the next start (`docs/install.md`).
 
 ## 8. State and API boundary
 
